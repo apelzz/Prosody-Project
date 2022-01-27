@@ -24,6 +24,11 @@ This document contains all R code used for statistical analysis and to generate 
 
     * Visualizations with pitch contour and duration point and line plots for both wh-words and vowels with sentence-medial/final wh-words
 
+3. Compare the pitch contours of PQs and FQs by wh-word position in PQs.
+
+    * t-tests (1) between PQ-mid's and FQs (2) between PQ-end's and FQs
+    
+    * Visualizations with pitch contour and duration point and line plots for both wh-words with PQs overall, PQ-mid's, and PQ-end's. 
 
 ### 0.0 Load all necessary packages
 
@@ -46,7 +51,7 @@ library(ggpubr)
 library(lmerTest)
 library(egg)
 
-setwd("C:/Users/zhuzi/Downloads/ProsExp/data_analysis")
+setwd("C:/Users/zhuzi/Downloads/Prosody_Project/data_analysis")
 
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
@@ -256,6 +261,7 @@ qtype_graph = ggpubr::ggarrange(wh_qtype_graph, vowel_qtype_graph, common.legend
 qtype_graph
 ```
 
+
 ## Part 2. EQs/PQs vs. mid/end
 
 ### 2.1 Filter out FQs
@@ -462,3 +468,102 @@ inter_graph = ggarrange(wh_mid_inter_graph +
           nrow = 2)
 ```
 
+
+## Part 3. Compare PQs (by wh-word position) and FQs
+
+First, extract the data containing all PQs and FQs. 
+```{r}
+PQ_FQ = data %>% filter(q_type %in% c('FQ','PQ'))
+```
+
+
+### 3.1 t-test between PQ-mid's and FQs
+
+Note that both PQ-mid's and FQs have `wh_position == "mid"`.
+```{r}
+PQmid_FQ = data %>% filter(q_type %in% c("PQ", "FQ"), wh_position == "mid")
+t.test(wh_delta_pitch ~ q_type, data = PQmid_FQ, var.equal = TRUE)
+t.test(wh_duration ~ q_type, data = PQmid_FQ, var.equal = TRUE)
+
+```
+
+
+### 3.2 t-test between PQ-end's and FQs
+
+```{r}
+PQend_FQ = rbind(data %>% filter(q_type == "FQ"), 
+                 data %>% filter(q_type == "PQ", wh_position == "end"))
+t.test(wh_delta_pitch ~ q_type, data = PQend_FQ, var.equal = TRUE)
+t.test(wh_duration ~ q_type, data = PQend_FQ, var.equal = TRUE)
+```
+
+
+### 3.3 Make the pitch contour plots (wh-words only)
+
+#### 3.3.1 For PQs (overall) and FQs
+```{r}
+# for PQs and FQs, get dataframe: "time 0 - start pitch", "time duration - end pitch"
+PQ_FQ_start_end = rbind(PQ_FQ %>% group_by(q_type) %>% summarise(time = 0, pitch = mean(wh_start_pitch)), PQ_FQ %>% group_by(q_type) %>% summarise(time = mean(wh_duration), pitch = mean(wh_end_pitch)))
+
+# plot for wh-word at mid position
+PQ_FQ_inter_graph = 
+  ggplot(data = PQ_FQ_start_end, mapping = aes(x = time, y = pitch, 
+  group = q_type, color = q_type, shape = q_type)) +
+  geom_point(stat = "summary", fun = mean, position = "dodge")+
+  geom_line(stat='summary', fun='mean') +
+  ylab("F0(Hz)") + ylim(155,210) +
+  xlab("T(s)")+ xlim(0.0,0.42) +
+  ggtitle("overall") +
+  labs(color = "Type",shape = "Type") +
+  theme(text = element_text(size = 7), plot.title = element_text(hjust = 0.5))
+```
+
+#### 3.3.2 For PQ-mid's and FQs
+```{r}
+PQmid_FQ_start_end = rbind(PQmid_FQ %>% group_by(q_type) %>% summarise(time = 0, pitch = mean(wh_start_pitch)), PQmid_FQ %>% group_by(q_type) %>% summarise(time = mean(wh_duration), pitch = mean(wh_end_pitch)))
+
+PQmid_FQ_inter_graph = 
+  ggplot(data = PQmid_FQ_start_end, mapping = aes(x = time, y = pitch, 
+  group = q_type, color = q_type, shape = q_type)) +
+  geom_point(stat = "summary", fun = mean, position = "dodge")+
+  geom_line(stat='summary', fun='mean') +
+  ylab("F0(Hz)") + ylim(155,210) +
+  xlab("T(s)")+ xlim(0.0,0.42) +
+  ggtitle("sentence-middle PQs") +
+  labs(color = "Type",shape = "Type") +
+  theme(text = element_text(size = 7), plot.title = element_text(hjust = 0.5))
+```
+
+#### 3.3.3 For PQ-mid's and FQs
+```{r}
+PQend_FQ_start_end = rbind(PQend_FQ %>% group_by(q_type) %>% summarise(time = 0, pitch = mean(wh_start_pitch)), PQend_FQ %>% group_by(q_type) %>% summarise(time = mean(wh_duration), pitch = mean(wh_end_pitch)))
+
+PQend_FQ_inter_graph = 
+  ggplot(data = PQend_FQ_start_end, mapping = aes(x = time, y = pitch, 
+  group = q_type, color = q_type, shape = q_type)) +
+  geom_point(stat = "summary", fun = mean, position = "dodge")+
+  geom_line(stat='summary', fun='mean') +
+  ylab("F0(Hz)") + ylim(155,210) +
+  xlab("T(s)")+ xlim(0.0,0.42) +
+  ggtitle("sentence-final PQs") +
+  labs(color = "Type",shape = "Type") +
+  theme(text = element_text(size = 7), plot.title = element_text(hjust = 0.5))
+```
+
+#### 3.3.4 Put the three graphs side-by-side: 
+```{r results='hide'}
+PQ_FQ_graph = ggarrange(PQ_FQ_inter_graph +
+            theme(legend.position = "none"), 
+          PQmid_FQ_inter_graph + 
+            theme(axis.text.y = element_blank(),
+                  axis.ticks.y = element_blank(),
+                  axis.title.y = element_blank(),
+                  plot.margin = margin(l = 1),
+                  legend.position = "none"),
+          PQend_FQ_inter_graph + 
+            theme(axis.text.y = element_blank(),
+                  axis.ticks.y = element_blank(),
+                  axis.title.y = element_blank(),
+                  plot.margin = margin(l = 1)), 
+          nrow = 1)
+```
